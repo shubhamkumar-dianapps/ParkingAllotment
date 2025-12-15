@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2>Enter Vehicle Details</h2>
+    <form method="post">
+        {% csrf_token %}
+        <input type="text" name="vehicle_number" placeholder="Vehicle Number" required class="form-control mb-3">
+        <input type="text" name="phone" placeholder="Phone Number" required class="form-control mb-3">
+        <input type="number" name="initial_payment" placeholder="Initial Payment (optional)" class="form-control mb-3">
+        <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+{% endblock %}

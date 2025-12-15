@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container text-center mt-5">
+    <h2 class="mb-4 fw-semibold">Choose Vehicle Type</h2>
+
+    <div class="d-flex justify-content-center gap-4 mt-3">
+        <a href="{% url 'view_slots' 'BIKE' %}" 
+           class="btn btn-outline-primary btn-lg px-5">
+            🏍️ 2 Wheeler
+        </a>
+
+        <a href="{% url 'view_slots' 'CAR' %}" 
+           class="btn btn-outline-dark btn-lg px-5">
+            🚗 4 Wheeler
+        </a>
+    </div>
+</div>
+
+{% endblock %}

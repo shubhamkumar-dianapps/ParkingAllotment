@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2>Checkout</h2>
+    <form method="post">
+        {% csrf_token %}
+        <input type="text" name="token" placeholder="Token ID" required class="form-control mb-3">
+        <button type="submit" class="btn btn-danger">Checkout</button>
+    </form>
+{% endblock %}
+

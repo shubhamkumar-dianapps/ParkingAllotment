@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!-- Header -->
+<div class="text-center text-white py-4 mb-4"
+     style="background:#2c3e50;">
+    <h2 class="fw-semibold mb-1">
+        {% if vehicle_type == 'CAR' %}🚗 4 Wheeler Parking{% else %}🏍️ 2 Wheeler Parking{% endif %}
+    </h2>
+    <p class="mb-0">
+        Floor {{ floor.number }} |
+        Base Price ₹{{ base_price_for_type }} +
+        Floor Increment ₹{{ floor.price_increment }}
+    </p>
+</div>
+
+<div class="container pb-4">
+
+    <!-- Floor Switch -->
+    <div class="text-center mb-4">
+        <span class="fw-semibold me-2">Select Floor:</span>
+        {% for f in floors %}
+            <a href="?floor={{ f.number }}"
+               class="btn btn-sm {% if f.number == floor.number %}btn-primary{% else %}btn-outline-primary{% endif %} me-1">
+                {{ f.number }}
+            </a>
+        {% endfor %}
+    </div>
+
+    <!-- Slots Section -->
+    {% if slots %}
+        {% regroup slots by section as section_list %}
+
+        {% for section_group in section_list %}
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header text-center fw-semibold">
+                    Section {{ section_group.grouper }}
+                </div>
+
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-center gap-3">
+
+                        {% for slot in section_group.list %}
+                            {% if slot.is_available %}
+                                <a href="{% url 'vehicle_form' slot.id %}"
+                                   class="btn btn-success slot-btn">
+                                    {{ slot.slot_number }}
+                                    <div class="small text-white-50">
+                                        ₹{{ slot.floor.price_increment|add:base_price_for_type }}
+                                    </div>
+                                </a>
+                            {% else %}
+                                <button class="btn btn-secondary slot-btn" disabled>
+                                    {{ slot.slot_number }}
+                                    <div class="small text-light">
+                                        Occupied
+                                    </div>
+                                </button>
+                            {% endif %}
+                        {% endfor %}
+
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-warning text-center">
+            No slots available on this floor.
+        </div>
+    {% endif %}
+
+</div>
+
+<style>
+    .slot-btn {
+        min-width: 90px;
+        height: 65px;
+        font-weight: 600;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+</style>
+
+{% endblock %}

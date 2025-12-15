@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container text-center mt-5">
+    <div class="mb-4">
+        <h1 class="display-4 text-success">✅ Checkout Completed!</h1>
+        <p class="lead">Thank you for using Elite Parking.</p>
+    </div>
+
+    <div class="card mx-auto shadow-lg" style="max-width: 600px;">
+        <div class="card-header bg-danger text-white">
+            <h2 class="mb-0">Parking Bill & Receipt</h2>
+        </div>
+        <div class="card-body py-5">
+            <h1 class="display-1 fw-bold text-danger mb-4">
+                TOKEN NO: {{ ticket.id }}
+            </h1>
+            <hr class="my-4">
+            <div class="row text-start fs-4">
+                <div class="col-md-6"><strong>Vehicle Number:</strong></div>
+                <div class="col-md-6">{{ ticket.vehicle_number }}</div>
+
+                <div class="col-md-6"><strong>Phone:</strong></div>
+                <div class="col-md-6">{{ ticket.phone }}</div>
+
+                <div class="col-md-6"><strong>Vehicle Type:</strong></div>
+                <div class="col-md-6">{{ ticket.vehicle_type }}</div>
+
+                <div class="col-md-6"><strong>Parking Slot:</strong></div>
+                <div class="col-md-6">{{ ticket.slot }}</div>
+
+                <div class="col-md-6"><strong>Check-in Time:</strong></div>
+                <div class="col-md-6">{{ ticket.check_in|date:"d M Y, h:i A" }}</div>
+
+                <div class="col-md-6"><strong>Check-out Time:</strong></div>
+                <div class="col-md-6">{{ ticket.check_out|date:"d M Y, h:i A" }}</div>
+
+                <div class="col-md-6"><strong>Initial Payment:</strong></div>
+                <div class="col-md-6">₹{{ ticket.initial_payment }}</div>
+
+                <div class="col-md-6"><strong>Total Hours:</strong></div>
+                <div class="col-md-6">{{ hours }}</div>
+
+                <div class="col-md-6 fw-bold"><strong>Final Amount:</strong></div>
+                <div class="col-md-6 fw-bold text-primary">₹{{ total }}</div>
+
+                {% if refund > 0 %}
+                    <div class="col-md-6 text-success fw-bold"><strong>Refund Amount:</strong></div>
+                    <div class="col-md-6 text-success fw-bold">₹{{ refund }}</div>
+                {% endif %}
+
+                {% if due > 0 %}
+                    <div class="col-md-6 text-danger fw-bold"><strong>Amount Due:</strong></div>
+                    <div class="col-md-6 text-danger fw-bold">₹{{ due }}</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-footer bg-light">
+            {% if refund > 0 %}
+                <div class="alert alert-success mt-3">
+                    <strong>Refund Processed:</strong> ₹{{ refund }} has been returned.
+                </div>
+            {% elif due > 0 %}
+                <div class="alert alert-warning mt-3">
+                    <strong>Please Pay:</strong> ₹{{ due }} at the exit gate.
+                </div>
+            {% else %}
+                <div class="alert alert-info mt-3">
+                    <strong>No additional payment required.</strong> Thank you!
+                </div>
+            {% endif %}
+
+            <a href="{% url 'home' %}" class="btn btn-success btn-lg px-5 py-3 mt-3">
+                Back to Home
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

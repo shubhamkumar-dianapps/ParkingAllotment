@@ -1,0 +1,28 @@
+BASE_PRICE = 50
+BASE_HOURS = 5
+EXTRA_PER_HOUR = 10
+VEHICLE_TYPE_CAR = "CAR"
+VEHICLE_TYPE_BIKE = "BIKE"
+VEHICLE_TYPE_CHOICES = [
+    (VEHICLE_TYPE_CAR, "Car"),
+    (VEHICLE_TYPE_BIKE, "Bike"),
+]
+BIKE_BASE_PRICE = 30
+BIKE_EXTRA_PER_HOUR = 5
+
+CAR_SECTIONS = ["A", "B", "C", "D"]
+BIKE_SECTIONS = ["E", "F", "G"]
+TOTAL_FLOORS = 10
+SLOTS_PER_SECTION = 50
+DEFAULT_PARKING_CONFIG = {
+    VEHICLE_TYPE_CAR: {
+        "base_price": BASE_PRICE,
+        "base_hours": BASE_HOURS,
+        "extra_per_hour": EXTRA_PER_HOUR,
+    },
+    VEHICLE_TYPE_BIKE: {
+        "base_price": BIKE_BASE_PRICE,
+        "base_hours": BASE_HOURS,
+        "extra_per_hour": BIKE_EXTRA_PER_HOUR,
+    },
+}
