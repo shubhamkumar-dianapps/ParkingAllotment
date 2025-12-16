@@ -70,4 +70,25 @@ The system supports concurrent bookings from multiple entry gates using database
 - Complete admin panel for configuration (rates, floors, slots)
 - Clean code architecture following SOLID principles
 
+# Key Technical Decisions & Why They Are Good
+
+- **Used qrcode library**  
+  → Industry standard, reliable, high-quality output
+
+- **Saved QR to model field**  
+  → Persistent, can be shown anytime (token page, bill)
+
+- **Embedded in PDF using ReportLab**  
+  → Customer gets complete token with QR in one printable file
+
+- **Used larger box_size (15)**  
+  → Ensures QR is scannable even when printed or viewed on small screens
+
+- **Base64 + JavaScript auto-download**  
+  → PDF downloads immediately without page refresh
+
+- **Media serving configured**  
+  → QR images load correctly in browser
+
+
 **Project Status**: Fully functional

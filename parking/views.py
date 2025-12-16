@@ -252,3 +252,48 @@ def download_pdf(request, ticket_id):
         f'attachment; filename="EliteParking_Token_{ticket.id}.pdf"'
     )
     return response
+
+
+def auto_checkout(request, token_id):
+    ticket = get_object_or_404(Ticket, id=token_id)
+
+    # If already checked out, just show bill
+    if ticket.check_out is not None:
+        total, refund, due, hours = BillingService.calculate(ticket)
+        return render(
+            request,
+            "bill.html",
+            {
+                "ticket": ticket,
+                "total": total,
+                "refund": refund,
+                "due": due,
+                "hours": hours,
+                "auto": True,  # Optional: to show "Scanned QR" message
+            },
+        )
+
+    # Auto checkout
+    ticket.check_out = timezone.now()
+    total, refund, due, hours = BillingService.calculate(ticket)
+    ticket.final_amount = total
+    ticket.save()
+
+    if ticket.slot:
+        ticket.slot.is_available = True
+        ticket.slot.save()
+
+    messages.success(request, "Checkout completed via QR scan!")
+
+    return render(
+        request,
+        "bill.html",
+        {
+            "ticket": ticket,
+            "total": total,
+            "refund": refund,
+            "due": due,
+            "hours": hours,
+            "auto": True,
+        },
+    )
