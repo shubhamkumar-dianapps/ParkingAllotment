@@ -1,36 +1,133 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="text-center mt-5">
-    <h1 class="display-4 text-success mb-4">✅ Parking Confirmed!</h1>
+<div class="container text-center mt-5 py-5">
+    <h1 class="display-4 text-success mb-4">Parking Confirmed!</h1>
 
-    <div class="card mx-auto" style="max-width: 500px;">
-        <div class="card-header bg-primary text-white">
-            <h3>Your Parking Token</h3>
+    <div class="card mx-auto shadow-lg border-0" style="max-width: 700px;">
+        <div class="card-header bg-primary text-white py-4">
+            <h2 class="mb-0">Your Parking Token</h2>
         </div>
-        <div class="card-body">
-            <h2 class="display-3 fw-bold text-primary mb-3">
-                Token ID: {{ ticket.id }}
-            </h2>
-            <hr>
-            <p class="lead mb-2">
-                <strong>Vehicle Number:</strong> {{ ticket.vehicle_number }}
-            </p>
-            <!-- QR Code Display -->
-            <div class="my-4">
-                <h5>Scan QR for Quick Checkout</h5>
-                <img src="{{ ticket.qr_code.url }}" alt="QR Code for Token {{ ticket.id }}" class="img-fluid" style="max-width: 250px;">
-                <p class="small text-muted mt-2">Scan to directly access your bill.</p>
+
+        <div class="card-body py-5 bg-light">
+            <h1 class="display-2 fw-bold text-primary mb-5">
+                TOKEN: {{ ticket.id }}
+            </h1>
+
+            <hr class="my-5">
+
+            <!-- QR Code Display - Direct and Clear -->
+            <div class="mb-5 p-4 bg-white rounded border border-2 border-primary">
+                <h4 class="mb-4 fw-semibold text-primary">🔍 Your QR Code for Instant Checkout</h4>
+                {% if ticket.qr_code %}
+                    <div class="text-center">
+                        <img src="{{ ticket.qr_code.url }}"
+                             alt="QR Code"
+                             width="300"
+                             height="300"
+                             class="img-fluid rounded shadow"
+                             style="background: white; padding: 15px; border: 2px solid #007bff;">
+                        <p class="mt-4 mb-0 text-muted fs-6">
+                            <strong>Scan this QR code to go directly to your bill</strong>
+                        </p>
+                        <p class="text-muted small">Or click the button below to view it larger</p>
+                    </div>
+                    <div class="text-center mt-4">
+                        <button type="button" class="btn btn-outline-primary btn-sm px-4 py-2" data-bs-toggle="modal" data-bs-target="#qrModal">
+                            <i class="bi bi-zoom-in me-2"></i> View QR Code Larger
+                        </button>
+                    </div>
+                {% else %}
+                    <div class="alert alert-warning mb-0">
+                        <strong>⚠️ QR Code Generating</strong><br>
+                        Your QR code is being generated. Please refresh the page in a moment.
+                    </div>
+                {% endif %}
             </div>
-            <!-- PDF Download Link -->
-            <a href="{% url 'download_pdf' ticket.id %}" class="btn btn-outline-primary mt-3">
-                Download Token PDF
-            </a>
+
+            <hr class="my-5">
+
+            <!-- Vehicle Details -->
+            <div class="row text-start fs-5 g-4" style="max-width: 600px; margin: 0 auto;">
+                <div class="col-sm-6"><strong>Vehicle Number:</strong></div>
+                <div class="col-sm-6">{{ ticket.vehicle_number }}</div>
+
+                <div class="col-sm-6"><strong>Phone Number:</strong></div>
+                <div class="col-sm-6">{{ ticket.phone }}</div>
+
+                <div class="col-sm-6"><strong>Vehicle Type:</strong></div>
+                <div class="col-sm-6">{{ ticket.vehicle_type }}</div>
+
+                <div class="col-sm-6"><strong>Parking Slot:</strong></div>
+                <div class="col-sm-6">{{ ticket.slot }}</div>
+
+                <div class="col-sm-6"><strong>Check-in Time:</strong></div>
+                <div class="col-sm-6">{{ ticket.check_in|date:"d M Y, h:i A" }}</div>
+
+                <div class="col-sm-6"><strong>Initial Payment:</strong></div>
+                <div class="col-sm-6">₹{{ ticket.initial_payment }}</div>
+            </div>
         </div>
-        <div class="card-footer text-center">
-            <a href="{% url 'home' %}" class="btn btn-success">Back to Home</a>
+
+        <div class="card-footer bg-white border-0 py-4">
+            <a href="{% url 'home' %}" class="btn btn-success btn-lg px-5 py-3 rounded-pill shadow">
+                Back to Home
+            </a>
         </div>
     </div>
 </div>
+
+<!-- QR Code Modal (Large & Clear) -->
+<div class="modal fade" id="qrModal" tabindex="-1" aria-labelledby="qrModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title" id="qrModalLabel">
+                    <i class="bi bi-qr-code me-2"></i>Scan QR Code - Token {{ ticket.id }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center py-5 bg-light">
+                {% if ticket.qr_code %}
+                    <div class="p-4 bg-white rounded">
+                        <img src="{{ ticket.qr_code.url }}"
+                             alt="QR Code"
+                             width="450"
+                             height="450"
+                             class="img-fluid rounded shadow-lg"
+                             style="background: white; padding: 25px; border: 3px solid #007bff;">
+                    </div>
+                    <p class="mt-4 fs-5 text-muted mb-0">
+                        <strong>Scan this QR code with your phone</strong>
+                    </p>
+                    <p class="text-muted small">You'll be directed to your billing page</p>
+                {% else %}
+                    <div class="alert alert-danger m-0">
+                        <strong>⚠️ QR Code Not Available</strong><br>
+                        The QR code is still being generated. Please try again shortly.
+                    </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer justify-content-center bg-light border-0">
+                <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Auto Download PDF -->
+<script>
+    window.onload = function() {
+        const pdfUrl = "{{ pdf_data_url|safe }}";
+        if (pdfUrl) {
+            const link = document.createElement('a');
+            link.href = pdfUrl;
+            link.download = "EliteParking_Token_{{ ticket.id }}.pdf";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    };
+</script>
 
 {% endblock %}

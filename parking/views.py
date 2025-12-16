@@ -1,13 +1,16 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
-from .models import Slot, Ticket, Floor, ParkingConfig
-from services.slot_allocator import SlotAllocator
-from services.billing import BillingService
 from django.contrib import messages
 from django.http import HttpResponse
 from reportlab.pdfgen import canvas
-import qrcode
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 from io import BytesIO
+import qrcode
+import base64  # <-- Critical import for base64 encoding
+from .models import Slot, Ticket, Floor, ParkingConfig
+from services.slot_allocator import SlotAllocator
+from services.billing import BillingService
 
 
 def home(request):
@@ -28,7 +31,6 @@ def view_slots(request, vehicle_type):
 
     floors = Floor.objects.order_by("number")
 
-    # Get base price from config for this vehicle type
     config = get_object_or_404(ParkingConfig, vehicle_type=vehicle_type.upper())
     base_price_for_type = config.base_price
 
@@ -40,137 +42,126 @@ def view_slots(request, vehicle_type):
             "vehicle_type": vehicle_type.upper(),
             "floor": floor,
             "floors": floors,
-            "base_price_for_type": base_price_for_type,  # Pass to template
+            "base_price_for_type": base_price_for_type,
         },
     )
 
 
-# def vehicle_form(request, slot_id):
-#     # Fetch the slot (ensure it's available)
-#     try:
-#         slot = Slot.objects.get(id=slot_id, is_available=True)
-#     except Slot.DoesNotExist:
-#         return render(request, "not_found.html")
-
-#     if request.method == "POST":
-#         vehicle_number = request.POST["vehicle_number"].strip().upper()
-#         phone = request.POST["phone"].strip()
-#         initial_payment = int(request.POST.get("initial_payment", 0) or 0)
-
-#         # Critical: Re-allocate with locking to prevent race condition
-#         allocated_slot = SlotAllocator.allocate(
-#             vehicle_type=slot.vehicle_type, floor=slot.floor, section=slot.section
-#         )
-
-#         if not allocated_slot:
-#             messages.error(
-#                 request, "Sorry, this slot was just taken by another customer."
-#             )
-#             return redirect("view_slots", vehicle_type=slot.vehicle_type)
-
-#         # Create ticket
-#         ticket = Ticket.objects.create(
-#             vehicle_number=vehicle_number,
-#             phone=phone,
-#             vehicle_type=slot.vehicle_type,
-#             slot=allocated_slot,
-#             initial_payment=initial_payment,
-#         )
-
-#         # Success: Show dedicated token page
-#         return redirect("token_success", ticket_id=ticket.id)
-
-#     # GET request: Show form
-#     return render(request, "vehicle_form.html", {"slot": slot})
-
-
 def vehicle_form(request, slot_id):
-    slot = get_object_or_404(Slot, id=slot_id, is_available=True)
+    try:
+        slot = Slot.objects.get(id=slot_id)
+    except Slot.DoesNotExist:
+        return render(
+            request,
+            "not_found.html",
+            {
+                "error_title": "Slot Not Found",
+                "error_message": "The parking slot you selected no longer exists.",
+                "suggestion": "Please go back and select another available slot.",
+            },
+        )
+
+    if not slot.is_available:
+        return render(
+            request,
+            "not_found.html",
+            {
+                "error_title": "Slot Already Booked",
+                "error_message": f"Sorry, Slot {slot.section}-{slot.slot_number} on Floor {slot.floor.number} has just been taken by another customer.",
+                "suggestion": "Please go back and select another available slot.",
+            },
+        )
 
     if request.method == "POST":
-        vehicle_number = request.POST["vehicle_number"]
-        phone = request.POST["phone"]
-        initial_payment = int(request.POST.get("initial_payment", 0))
+        vehicle_number = request.POST["vehicle_number"].strip().upper()
+        phone = request.POST["phone"].strip()
+        initial_payment = int(request.POST.get("initial_payment", 0) or 0)
 
-        slot = SlotAllocator.allocate(slot.vehicle_type, slot.floor, slot.section)
-        if not slot:
-            return render(request, "slots.html", {"error": "Slot taken"})
+        allocated_slot = SlotAllocator.allocate(
+            vehicle_type=slot.vehicle_type, floor=slot.floor, section=slot.section
+        )
+        if not allocated_slot:
+            messages.error(
+                request, "Sorry, this slot was just taken by another customer."
+            )
+            return redirect("view_slots", vehicle_type=slot.vehicle_type)
 
         ticket = Ticket.objects.create(
             vehicle_number=vehicle_number,
             phone=phone,
             vehicle_type=slot.vehicle_type,
-            slot=slot,
+            slot=allocated_slot,
             initial_payment=initial_payment,
         )
 
-        # Generate QR Code (links to bill page)
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr_url = request.build_absolute_uri(f"/checkout/?token={ticket.id}")
-        qr.add_data(qr_url)
+        # Generate and save QR Code
+        checkout_url = request.build_absolute_uri(f"/checkout/?token={ticket.id}")
+        qr = qrcode.QRCode(version=1, box_size=15, border=6)  # Larger for clarity
+        qr.add_data(checkout_url)
         qr.make(fit=True)
-        img = qr.make_image(fill="black", back_color="white")
-        qr_buffer = BytesIO()
-        img.save(qr_buffer, format="PNG")
-        qr_buffer.seek(0)
-        ticket.qr_code.save(
-            f"qr_{ticket.id}.png", qr_buffer
-        )  # Save to model if you add ImageField, or pass to template
+        qr_img = qr.make_image(fill_color="black", back_color="white")
 
-        # Generate PDF for auto-download
+        qr_buffer = BytesIO()
+        qr_img.save(qr_buffer, format="PNG")
+        qr_buffer.seek(0)
+        ticket.qr_code.save(f"qr_token_{ticket.id}.png", qr_buffer)
+        ticket.save()
+
+        # Generate PDF with embedded QR
         pdf_buffer = BytesIO()
-        pdf = canvas.Canvas(pdf_buffer)
-        pdf.drawString(100, 800, "Elite Parking Token")
-        pdf.drawString(100, 780, f"Token ID: {ticket.id}")
-        pdf.drawString(100, 760, f"Vehicle Number: {ticket.vehicle_number}")
-        pdf.drawString(100, 740, f"Check-in Time: {ticket.check_in}")
-        pdf.drawString(100, 720, f"Initial Payment: ₹{ticket.initial_payment}")
-        pdf.save()
+        p = canvas.Canvas(pdf_buffer, pagesize=A4)
+        width, height = A4
+
+        p.setFont("Helvetica-Bold", 28)
+        p.drawCentredString(width / 2, height - 100, "Elite Parking Token")
+
+        p.setFont("Helvetica", 18)
+        p.drawCentredString(width / 2, height - 150, f"Token No: {ticket.id}")
+        p.drawCentredString(
+            width / 2, height - 190, f"Vehicle: {ticket.vehicle_number}"
+        )
+        p.drawCentredString(width / 2, height - 230, f"Phone: {ticket.phone}")
+        p.drawCentredString(width / 2, height - 270, f"Slot: {ticket.slot}")
+        p.drawCentredString(
+            width / 2,
+            height - 310,
+            f"Check-in: {ticket.check_in.strftime('%d %b %Y, %I:%M %p')}",
+        )
+
+        # Embed QR Code
+        qr_reader = ImageReader(BytesIO(qr_buffer.getvalue()))
+        p.drawImage(
+            qr_reader,
+            width / 2 - 120,
+            height - 580,
+            width=240,
+            height=240,
+            preserveAspectRatio=True,
+        )
+        p.drawCentredString(width / 2, height - 620, "Scan QR for Quick Checkout")
+
+        p.showPage()
+        p.save()
         pdf_buffer.seek(0)
 
-        # Auto-download PDF response
-        response = HttpResponse(pdf_buffer, content_type="application/pdf")
-        response["Content-Disposition"] = (
-            f'attachment; filename="token_{ticket.id}.pdf"'
+        # Convert to base64 for auto-download
+        pdf_base64 = base64.b64encode(pdf_buffer.getvalue()).decode("utf-8")
+        pdf_data_url = f"data:application/pdf;base64,{pdf_base64}"
+
+        # Redirect to token success with PDF data
+        return render(
+            request,
+            "token_success.html",
+            {"ticket": ticket, "pdf_data_url": pdf_data_url},
         )
-        return response  # This triggers auto-download, then user can go to home
 
     return render(request, "vehicle_form.html", {"slot": slot})
-
-
-# def checkout(request):
-#     if request.method == "POST":
-#         token = request.POST["token"]
-#         ticket = get_object_or_404(Ticket, id=token, check_out__isnull=True)
-
-#         ticket.check_out = timezone.now()
-#         total, refund, due, hours = BillingService.calculate(ticket)
-#         ticket.final_amount = total
-#         ticket.save()
-
-#         ticket.slot.is_available = True
-#         ticket.slot.save()
-
-#         return render(
-#             request,
-#             "bill.html",
-#             {
-#                 "ticket": ticket,
-#                 "total": total,
-#                 "refund": refund,
-#                 "due": due,
-#                 "hours": hours,
-#             },
-#         )
-
-#     return render(request, "checkout.html")
 
 
 def checkout(request):
     if request.method == "POST":
         token_input = request.POST.get("token", "").strip()
 
-        # Validate input
         if not token_input:
             messages.error(request, "Please enter a token number.")
             return render(request, "checkout.html")
@@ -182,10 +173,8 @@ def checkout(request):
             return render(request, "checkout.html")
 
         try:
-            # Try to get active ticket (not checked out yet)
             ticket = Ticket.objects.get(id=token_id, check_out__isnull=True)
         except Ticket.DoesNotExist:
-            # This covers both: invalid token OR already checked out
             return render(
                 request,
                 "not_found.html",
@@ -196,13 +185,12 @@ def checkout(request):
                 },
             )
 
-        # Proceed with checkout
+        # Checkout process
         ticket.check_out = timezone.now()
         total, refund, due, hours = BillingService.calculate(ticket)
         ticket.final_amount = total
         ticket.save()
 
-        # Free the slot
         if ticket.slot:
             ticket.slot.is_available = True
             ticket.slot.save()
@@ -221,7 +209,6 @@ def checkout(request):
             },
         )
 
-    # GET request - show form
     return render(request, "checkout.html")
 
 
@@ -234,15 +221,34 @@ def download_pdf(request, ticket_id):
     ticket = get_object_or_404(Ticket, id=ticket_id)
 
     buffer = BytesIO()
-    p = canvas.Canvas(buffer)
-    p.drawString(100, 800, "Elite Parking Token")
-    p.drawString(100, 780, f"Token ID: {ticket.id}")
-    p.drawString(100, 760, f"Vehicle Number: {ticket.vehicle_number}")
-    p.drawString(100, 740, f"Check-in Time: {ticket.check_in}")
-    p.drawString(100, 720, f"Initial Payment: ₹{ticket.initial_payment}")
+    p = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+
+    p.setFont("Helvetica-Bold", 28)
+    p.drawCentredString(width / 2, height - 100, "Elite Parking Token")
+
+    p.setFont("Helvetica", 18)
+    p.drawCentredString(width / 2, height - 150, f"Token No: {ticket.id}")
+    p.drawCentredString(width / 2, height - 190, f"Vehicle: {ticket.vehicle_number}")
+    p.drawCentredString(width / 2, height - 230, f"Phone: {ticket.phone}")
+    p.drawCentredString(width / 2, height - 270, f"Slot: {ticket.slot}")
+    p.drawCentredString(
+        width / 2,
+        height - 310,
+        f"Check-in: {ticket.check_in.strftime('%d %b %Y, %I:%M %p')}",
+    )
+
+    p.setFont("Helvetica", 14)
+    p.drawCentredString(
+        width / 2, height - 360, "Thank you for choosing Elite Parking!"
+    )
+
+    p.showPage()
     p.save()
     buffer.seek(0)
 
     response = HttpResponse(buffer, content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="token_{ticket.id}.pdf"'
+    response["Content-Disposition"] = (
+        f'attachment; filename="EliteParking_Token_{ticket.id}.pdf"'
+    )
     return response
