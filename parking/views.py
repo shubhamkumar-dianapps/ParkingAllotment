@@ -18,12 +18,30 @@ def home(request):
 
 
 def select_vehicle(request):
+    try:
+        vehicle_types = ParkingConfig.objects.values_list("vehicle_type", flat=True)
+    except ParkingConfig.DoesNotExist:
+        render(
+            request,
+            "500.html",
+            {
+                "error_title": "Configuration Error",
+                "error_message": "No vehicle types are configured for parking.",
+                "suggestion": "Please contact the administrator.",
+            },
+        )
     return render(request, "vehicle_type.html")
 
 
 def view_slots(request, vehicle_type):
-    floor_no = int(request.GET.get("floor", 1))
-    floor = get_object_or_404(Floor, number=floor_no)
+    try:
+        floor_no = int(request.GET.get("floor", 1))
+    except ValueError:
+        floor_no = 1
+    try:
+        floor = get_object_or_404(Floor, number=floor_no)
+    except Floor.DoesNotExist:
+        floor = Floor.objects.first()
 
     slots = Slot.objects.filter(
         floor=floor, vehicle_type=vehicle_type, is_available=True
@@ -31,7 +49,7 @@ def view_slots(request, vehicle_type):
 
     floors = Floor.objects.order_by("number")
 
-    config = get_object_or_404(ParkingConfig, vehicle_type=vehicle_type.upper())
+    config = ParkingConfig.objects.get(vehicle_type=vehicle_type.upper())
     base_price_for_type = config.base_price
 
     return render(
