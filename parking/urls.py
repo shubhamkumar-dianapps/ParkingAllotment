@@ -10,5 +10,5 @@ urlpatterns = [
     path("checkout/", views.checkout, name="checkout"),
     path("token/<int:ticket_id>/", views.token_success, name="token_success"),
     path("download/pdf/<int:ticket_id>/", views.download_pdf, name="download_pdf"),
-    path("qr-checkout/<int:token_id>/", views.auto_checkout, name="auto_checkout"),
+    path("qrcheckout/<int:token_id>/", views.auto_checkout, name="auto_checkout"),
 ]

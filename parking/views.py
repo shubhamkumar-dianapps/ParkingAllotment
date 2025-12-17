@@ -95,7 +95,7 @@ def vehicle_form(request, slot_id):
         )
 
         # Generate and save QR Code
-        checkout_url = request.build_absolute_uri(f"/checkout/?token={ticket.id}")
+        checkout_url = request.build_absolute_uri(f"/qrcheckout/{ticket.id}")
         qr = qrcode.QRCode(version=1, box_size=15, border=6)  # Larger for clarity
         qr.add_data(checkout_url)
         qr.make(fit=True)
@@ -296,4 +296,30 @@ def auto_checkout(request, token_id):
             "hours": hours,
             "auto": True,
         },
+    )
+
+
+def custom_404(request, exception=None):
+    return render(
+        request,
+        "not_found.html",
+        {
+            "error_title": "Page Not Found",
+            "error_message": "The page you requested does not exist.",
+            "suggestion": "Please check the URL or go back to the home page.",
+        },
+        status=404,
+    )
+
+
+def custom_500(request):
+    return render(
+        request,
+        "500.html",
+        {
+            "error_title": "Server Error",
+            "error_message": "Something went wrong on our side. We're looking into it.",
+            "suggestion": "Try again later or contact support if the problem persists.",
+        },
+        status=500,
     )

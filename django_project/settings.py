@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-p_riixag!rj)99wl(fa#09zzi1u=-v4vhab$h_*u1js**e=3_1
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", ".ngrok-free.app"]
 
 
 # Application definition
@@ -48,6 +48,11 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+# Custom middleware to render friendly error pages for uncaught exceptions
+MIDDLEWARE += [
+    "parking.middleware.ExceptionHandlingMiddleware",
 ]
 
 ROOT_URLCONF = "django_project.urls"
