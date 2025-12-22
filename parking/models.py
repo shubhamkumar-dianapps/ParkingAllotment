@@ -49,6 +49,7 @@ class Ticket(models.Model):
     check_out = models.DateTimeField(null=True, blank=True)
     initial_payment = models.IntegerField(default=0)
     final_amount = models.IntegerField(null=True, blank=True)
+    email = models.EmailField(blank=True, null=True)
 
     def __str__(self):
         return f"Token #{self.id}"

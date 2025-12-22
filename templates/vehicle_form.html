@@ -6,6 +6,13 @@
         <input type="text" name="vehicle_number" placeholder="Vehicle Number" required class="form-control mb-3">
         <input type="text" name="phone" placeholder="Phone Number" required class="form-control mb-3">
         <input type="number" name="initial_payment" placeholder="Initial Payment (optional)" class="form-control mb-3">
+        <div class="mb-4">
+    <label for="email" class="form-label fw-bold fs-5">Email Address (for Token Receipt)</label>
+    <input type="email" name="email" id="email" 
+           placeholder="example@domain.com" 
+           class="form-control form-control-lg rounded-pill" required>
+    <small class="text-muted">We'll send your token and QR code to this email</small>
+</div>
         <button type="submit" class="btn btn-primary">Submit</button>
     </form>
 {% endblock %}
