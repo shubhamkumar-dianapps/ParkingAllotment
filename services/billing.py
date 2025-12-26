@@ -1,12 +1,25 @@
 import math
 from django.utils import timezone
+from django.core.cache import cache
 from parking.models import ParkingConfig
 
 
 class BillingService:
+    CACHE_TTL = 86400  # 24 hours
+
+    @staticmethod
+    def _get_config(vehicle_type):
+        """Retrieve ParkingConfig from cache or database."""
+        cache_key = f"parking_config_{vehicle_type}"
+        config = cache.get(cache_key)
+        if not config:
+            config = ParkingConfig.objects.get(vehicle_type=vehicle_type)
+            cache.set(cache_key, config, BillingService.CACHE_TTL)
+        return config
+
     @staticmethod
     def calculate(ticket):
-        config = ParkingConfig.objects.get(vehicle_type=ticket.vehicle_type)
+        config = BillingService._get_config(ticket.vehicle_type)
         floor_increment = ticket.slot.floor.price_increment
         base_price = config.base_price + floor_increment
 

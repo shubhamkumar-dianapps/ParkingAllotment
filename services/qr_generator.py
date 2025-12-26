@@ -1,9 +1,14 @@
 import qrcode
 from io import BytesIO
+from decouple import config
+
+
+BOX_SIZE = int(config("QR_BOX_SIZE"))
+BORDER = int(config("QR_BORDER"))
 
 
 def generate_and_save_qr(ticket, url):
-    qr = qrcode.QRCode(version=1, box_size=15, border=6)
+    qr = qrcode.QRCode(version=1, box_size=BOX_SIZE, border=BORDER)
     qr.add_data(url)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")

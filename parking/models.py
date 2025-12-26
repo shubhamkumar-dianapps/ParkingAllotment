@@ -30,10 +30,13 @@ class Slot(models.Model):
     section = models.CharField(max_length=1)
     slot_number = models.IntegerField()
     vehicle_type = models.CharField(max_length=10)
-    is_available = models.BooleanField(default=True)
+    is_available = models.BooleanField(default=True, db_index=True)
 
     class Meta:
         unique_together = ("floor", "section", "slot_number")
+        indexes = [
+            models.Index(fields=["floor", "vehicle_type", "is_available"]),
+        ]
 
     def __str__(self):
         return f"{self.floor}-{self.section}-{self.slot_number}"
@@ -41,15 +44,15 @@ class Slot(models.Model):
 
 class Ticket(models.Model):
     qr_code = models.ImageField(upload_to="qrcodes/", blank=True, null=True)
-    vehicle_number = models.CharField(max_length=20)
-    phone = models.CharField(max_length=15)
+    vehicle_number = models.CharField(max_length=20, db_index=True)
+    phone = models.CharField(max_length=15, db_index=True)
     vehicle_type = models.CharField(max_length=10)
     slot = models.ForeignKey(Slot, on_delete=models.SET_NULL, null=True)
     check_in = models.DateTimeField(default=timezone.now)
-    check_out = models.DateTimeField(null=True, blank=True)
+    check_out = models.DateTimeField(null=True, blank=True, db_index=True)
     initial_payment = models.IntegerField(default=0)
     final_amount = models.IntegerField(null=True, blank=True)
-    email = models.EmailField(blank=True, null=True)
+    email = models.EmailField(blank=True, null=True, db_index=True)
 
     def __str__(self):
         return f"Token #{self.id}"

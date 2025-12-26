@@ -3,11 +3,16 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from io import BytesIO
 import qrcode
+from decouple import config
+
+
+BOX_SIZE = int(config("QR_BOX_SIZE"))
+BORDER = int(config("QR_BORDER"))
 
 
 def generate_parking_token_pdf(ticket, checkout_url):
     # Generate QR for PDF
-    qr = qrcode.QRCode(version=1, box_size=15, border=6)
+    qr = qrcode.QRCode(version=1, box_size=BOX_SIZE, border=BORDER)
     qr.add_data(checkout_url)
     qr.make(fit=True)
     qr_img = qr.make_image(fill_color="black", back_color="white")
@@ -49,7 +54,10 @@ def generate_parking_token_pdf(ticket, checkout_url):
         ("Vehicle Number", ticket.vehicle_number),
         ("Phone Number", ticket.phone),
         ("Email", ticket.email or "N/A"),
-        ("Vehicle Type", ticket.vehicle_type),
+        (
+            "Vehicle Type",
+            "4-Wheeler" if ticket.vehicle_type == "CAR" else "2-Wheeler",
+        ),
         ("Parking Slot", str(ticket.slot)),
         ("Check-in Time", ticket.check_in.strftime("%d %B %Y, %I:%M %p")),
         ("Initial Payment", f"₹{ticket.initial_payment}"),

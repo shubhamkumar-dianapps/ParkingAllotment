@@ -1,4 +1,3 @@
-import heapq
 from django.db import transaction
 from parking.models import Slot
 
@@ -7,29 +6,22 @@ class SlotAllocator:
     @staticmethod
     @transaction.atomic
     def allocate(vehicle_type, floor, section):
-        available_slots = list(
-            Slot.objects.select_for_update()
+        slot = (
+            Slot.objects.select_for_update(skip_locked=True)
             .filter(
                 vehicle_type=vehicle_type,
                 floor=floor,
                 section=section,
                 is_available=True,
             )
-            .values_list("slot_number", flat=True)
+            .order_by("slot_number")
+            .first()
         )
 
-        if not available_slots:
+        if not slot:
             return None
 
-        heapq.heapify(
-            available_slots
-        )  # Min-heap for optimized allocation (smallest slot first)
-        slot_no = heapq.heappop(available_slots)
-
-        slot = Slot.objects.get(
-            vehicle_type=vehicle_type, floor=floor, section=section, slot_number=slot_no
-        )
         slot.is_available = False
-        slot.save()
+        slot.save(update_fields=["is_available"])
 
         return slot
