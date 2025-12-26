@@ -11,5 +11,5 @@ media/
 *.pyo
 *.sqlite3
 *.swp
-
+.env
 
