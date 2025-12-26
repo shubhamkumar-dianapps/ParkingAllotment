@@ -5,6 +5,9 @@ See https://docs.djangoproject.com/en/stable/topics/settings/
 """
 
 from pathlib import Path
+import os
+
+# Define the Log file path in your Root Folder
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -107,3 +110,47 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Custom error handlers
 handler404 = "parking.views.custom_404"
 handler500 = "parking.views.custom_500"
+
+
+# logging File
+LOG_FILE_PATH = BASE_DIR / "parking_system.log"
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {asctime} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": LOG_FILE_PATH,
+            "formatter": "simple",
+        },
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "loggers": {
+        "parking": {  # This targets your "parking" app
+            "handlers": ["file", "console"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "django": {  # This catches internal Django errors
+            "handlers": ["file"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+    },
+}

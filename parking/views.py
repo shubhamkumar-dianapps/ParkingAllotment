@@ -192,6 +192,9 @@ def _process_checkout(request, token_input, is_qr_scan=False):
     if is_qr_scan:
         success_msg += " (via QR scan)"
     messages.success(request, success_msg)
+    logger.info(
+        f"Slot Freed: Slot ID {ticket.slot.id} is now available (Released by Ticket #{ticket.id})."
+    )
 
     return render(
         request,
