@@ -1,18 +1,40 @@
 {% extends "base.html" %}
+
 {% block content %}
-    <h2>Enter Vehicle Details</h2>
-    <form method="post">
-        {% csrf_token %}
-        <input type="text" name="vehicle_number" placeholder="Vehicle Number" required class="form-control mb-3">
-        <input type="text" name="phone" placeholder="Phone Number" required class="form-control mb-3">
-        <input type="number" name="initial_payment" placeholder="Initial Payment (optional)" class="form-control mb-3">
-        <div class="mb-4">
-    <label for="email" class="form-label fw-bold fs-5">Email Address (for Token Receipt)</label>
-    <input type="email" name="email" id="email" 
-           placeholder="example@domain.com" 
-           class="form-control form-control-lg rounded-pill" required>
-    <small class="text-muted">We'll send your token and QR code to this email</small>
+<div class="container mt-5">
+    <div class="card shadow-sm p-4">
+        <h2 class="mb-4">Enter Vehicle Details for Slot: {{ slot }}</h2>
+        
+        <form method="post" novalidate>
+            {% csrf_token %}
+            
+            {% for field in form %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{{ field.label }}</label>
+                    
+                    {# Render the input field with the classes we defined in forms.py #}
+                    {{ field }}
+                    
+                    {# 1. ERROR MESSAGES: This is where your 'ValidationError' text appears #}
+                    {% if field.errors %}
+                        {% for error in field.errors %}
+                            <div class="text-danger small mt-1">
+                                <strong>⚠️ {{ error }}</strong>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    {# Help text for email #}
+                    {% if field.name == 'email' %}
+                        <small class="text-muted d-block mt-1">We'll send your token and QR code to this email</small>
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5">
+                Generate Token
+            </button>
+        </form>
+    </div>
 </div>
-        <button type="submit" class="btn btn-primary">Submit</button>
-    </form>
 {% endblock %}
