@@ -2,23 +2,11 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from io import BytesIO
-import qrcode
-from decouple import config
-
-
-BOX_SIZE = int(config("QR_BOX_SIZE"))
-BORDER = int(config("QR_BORDER"))
 
 
 def generate_parking_token_pdf(ticket, checkout_url):
-    # Generate QR for PDF
-    qr = qrcode.QRCode(version=1, box_size=BOX_SIZE, border=BORDER)
-    qr.add_data(checkout_url)
-    qr.make(fit=True)
-    qr_img = qr.make_image(fill_color="black", back_color="white")
-    qr_buffer = BytesIO()
-    qr_img.save(qr_buffer, format="PNG")
-    qr_buffer.seek(0)
+    # Use existing QR code from the ticket
+    qr_reader = ImageReader(ticket.qr_code.path)
 
     # Create PDF
     pdf_buffer = BytesIO()
@@ -34,7 +22,6 @@ def generate_parking_token_pdf(ticket, checkout_url):
     # QR Code
     p.setFont("Helvetica-Bold", 16)
     p.drawCentredString(width / 2, height - 180, "Scan for Instant Checkout")
-    qr_reader = ImageReader(qr_buffer)
     p.drawImage(
         qr_reader,
         width / 2 - 130,
@@ -54,10 +41,7 @@ def generate_parking_token_pdf(ticket, checkout_url):
         ("Vehicle Number", ticket.vehicle_number),
         ("Phone Number", ticket.phone),
         ("Email", ticket.email or "N/A"),
-        (
-            "Vehicle Type",
-            "4-Wheeler" if ticket.vehicle_type == "CAR" else "2-Wheeler",
-        ),
+        ("Vehicle Type", ticket.vehicle_type.name),
         ("Parking Slot", str(ticket.slot)),
         ("Check-in Time", ticket.check_in.strftime("%d %B %Y, %I:%M %p")),
         ("Initial Payment", f"₹{ticket.initial_payment}"),

@@ -8,12 +8,12 @@ class BillingService:
     CACHE_TTL = 86400  # 24 hours
 
     @staticmethod
-    def _get_config(vehicle_type):
+    def _get_config(vehicle_type_obj):
         """Retrieve ParkingConfig from cache or database."""
-        cache_key = f"parking_config_{vehicle_type}"
+        cache_key = f"parking_config_{vehicle_type_obj.name}"
         config = cache.get(cache_key)
         if not config:
-            config = ParkingConfig.objects.get(vehicle_type=vehicle_type)
+            config = ParkingConfig.objects.get(vehicle_type=vehicle_type_obj)
             cache.set(cache_key, config, BillingService.CACHE_TTL)
         return config
 

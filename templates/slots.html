@@ -5,7 +5,8 @@
 <div class="text-center text-white py-4 mb-4"
      style="background:#2c3e50;">
     <h2 class="fw-semibold mb-1">
-        {% if vehicle_type == 'CAR' %}🚗 4 Wheeler Parking{% else %}🏍️ 2 Wheeler Parking{% endif %}
+        {% if 'CAR' in vehicle_type.name|upper %}🚗{% else %}🏍️{% endif %}
+        {{ vehicle_type.name }} Parking
     </h2>
     <p class="mb-0">
         Floor {{ floor.number }} |

@@ -5,16 +5,12 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from django.contrib import messages
 from django.http import HttpResponse
-from django.core.mail import EmailMessage
 from django.conf import settings
 
-from .models import Slot, Ticket, Floor, ParkingConfig
+from .models import Slot, Ticket, Floor, ParkingConfig, VehicleType
 from .forms import VehicleDetailsForm
-from services.slot_allocator import SlotAllocator
-from services.billing import BillingService
+from services.parking_manager import ParkingManager
 from services.pdf_generator import generate_parking_token_pdf
-from services.qr_generator import generate_and_save_qr
-
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +25,8 @@ def home(request):
 
 def select_vehicle(request):
     """Display vehicle type selection."""
-    vehicle_types = ParkingConfig.objects.values_list("vehicle_type", flat=True)
-    if not vehicle_types:
+    vehicle_types = VehicleType.objects.all()
+    if not vehicle_types.exists():
         return _render_error_page(
             request,
             "Configuration Error",
@@ -38,7 +34,7 @@ def select_vehicle(request):
             suggestion="Please contact the administrator to set up vehicle types.",
             status=500,
         )
-    return render(request, "vehicle_type.html")
+    return render(request, "vehicle_type.html", {"vehicle_types": vehicle_types})
 
 
 # =============================================
@@ -46,21 +42,22 @@ def select_vehicle(request):
 # =============================================
 
 
-def view_slots(request, vehicle_type):
+def view_slots(request, vehicle_type_id):
     """Display available slots for selected vehicle type and floor."""
+    vehicle_type_obj = get_object_or_404(VehicleType, id=vehicle_type_id)
     try:
         floor_no = int(request.GET.get("floor", 1))
     except (ValueError, TypeError):
         floor_no = 1
 
     floor = get_object_or_404(Floor, number=floor_no)
-    config = get_object_or_404(ParkingConfig, vehicle_type=vehicle_type.upper())
+    config = get_object_or_404(ParkingConfig, vehicle_type=vehicle_type_obj)
 
     slots = (
         Slot.objects.select_related("floor")
         .filter(
             floor=floor,
-            vehicle_type=vehicle_type.upper(),
+            vehicle_type=vehicle_type_obj,
             is_available=True,
         )
         .order_by("section", "slot_number")
@@ -70,7 +67,7 @@ def view_slots(request, vehicle_type):
 
     context = {
         "slots": slots,
-        "vehicle_type": vehicle_type.upper(),
+        "vehicle_type": vehicle_type_obj,
         "floor": floor,
         "floors": floors,
         "base_price_for_type": config.base_price,
@@ -92,46 +89,26 @@ def vehicle_form(request, slot_id):
     if request.method == "POST":
         form = VehicleDetailsForm(request.POST)
         if form.is_valid():
-            allocated_slot = SlotAllocator.allocate(
-                vehicle_type=slot.vehicle_type,
-                floor=slot.floor,
-                section=slot.section,
-            )
-            if not allocated_slot:
+            booking_result = ParkingManager.book_vehicle(request, slot_id, form)
+
+            if not booking_result:
                 messages.error(
                     request, "Sorry, this slot was just taken by another customer."
                 )
-                return redirect("view_slots", vehicle_type=slot.vehicle_type)
+                return redirect("view_slots", vehicle_type_id=slot.vehicle_type.id)
 
-            # Create ticket with email
-            ticket = Ticket.objects.create(
-                vehicle_number=form.cleaned_data["vehicle_number"].strip().upper(),
-                phone=form.cleaned_data["phone"].strip(),
-                email=form.cleaned_data["email"].strip().lower(),
-                vehicle_type=slot.vehicle_type,
-                slot=allocated_slot,
-                initial_payment=form.cleaned_data["initial_payment"] or 0,
-            )
-            logger.info(f"Ticket {ticket.id} created for slot {allocated_slot}.")
-
-            # Generate QR code and save to model
-            checkout_url = request.build_absolute_uri(f"/qrcheckout/{ticket.id}")
-            generate_and_save_qr(ticket, checkout_url)
-
-            # Generate PDF with embedded QR
-            pdf_buffer = generate_parking_token_pdf(ticket, checkout_url)
-
-            # Send email with PDF attachment
-            _send_token_email(request, ticket, pdf_buffer, ticket.email)
-
-            # Auto-download via base64 data URL
-            pdf_base64 = base64.b64encode(pdf_buffer.getvalue()).decode("utf-8")
-            pdf_data_url = f"data:application/pdf;base64,{pdf_base64}"
+            if not booking_result["email_sent"]:
+                messages.warning(
+                    request, "Your token was created, but we failed to send the email."
+                )
 
             return render(
                 request,
                 "token_success.html",
-                {"ticket": ticket, "pdf_data_url": pdf_data_url},
+                {
+                    "ticket": booking_result["ticket"],
+                    "pdf_data_url": booking_result["pdf_data_url"],
+                },
             )
     else:
         form = VehicleDetailsForm()
@@ -165,49 +142,30 @@ def _process_checkout(request, token_input, is_qr_scan=False):
 
     try:
         token_id = int(token_input)
-        # Use select_related to avoid a second query for the slot
-        ticket = Ticket.objects.select_related("slot__floor").get(
-            id=token_id, check_out__isnull=True
+    except ValueError:
+        return _render_error_page(
+            request, "Invalid Token", "The token ID must be a number."
         )
-    except (ValueError, Ticket.DoesNotExist):
+
+    success, result = ParkingManager.process_checkout(token_id)
+
+    if not success:
         logger.warning(f"Invalid or used token entered: '{token_input}'")
         return _render_error_page(
             request,
             "Invalid Token",
-            "The token was not found or has already been used.",
+            result,  # Error message
             suggestion="Please check your token number or contact support.",
         )
-
-    # Perform checkout
-    ticket.check_out = timezone.now()
-    total, refund, due, hours = BillingService.calculate(ticket)
-    ticket.final_amount = total
-    ticket.save()
-
-    if ticket.slot:
-        ticket.slot.is_available = True
-        ticket.slot.save()
 
     success_msg = "Checkout completed successfully!"
     if is_qr_scan:
         success_msg += " (via QR scan)"
     messages.success(request, success_msg)
-    logger.info(
-        f"Slot Freed: Slot ID {ticket.slot.id} is now available (Released by Ticket #{ticket.id})."
-    )
 
-    return render(
-        request,
-        "bill.html",
-        {
-            "ticket": ticket,
-            "total": total,
-            "refund": refund,
-            "due": due,
-            "hours": hours,
-            "is_qr_scan": is_qr_scan,
-        },
-    )
+    context = result
+    context["is_qr_scan"] = is_qr_scan
+    return render(request, "bill.html", context)
 
 
 # =============================================
@@ -253,7 +211,7 @@ def _render_error_page(request, title, message, suggestion=None, status=404):
 def _validate_slot(request, slot_id):
     """Validate slot existence and availability."""
     try:
-        slot = Slot.objects.get(id=slot_id)
+        slot = Slot.objects.select_related("vehicle_type").get(id=slot_id)
     except Slot.DoesNotExist:
         logger.warning(f"Attempted to access non-existent slot_id: {slot_id}")
         return _render_error_page(
@@ -271,51 +229,6 @@ def _validate_slot(request, slot_id):
         )
 
     return slot
-
-
-def _send_token_email(request, ticket, pdf_buffer, email):
-    """Send token PDF via email, with error handling."""
-    if not email:
-        return
-
-    checkout_url = request.build_absolute_uri(f"/qrcheckout/{ticket.id}")
-
-    subject = f"Elite Parking Token - {ticket.id}"
-    body = f"""
-    Dear Customer,
-
-    Thank you for choosing Elite Parking!
-
-    Your parking token is attached.
-
-    Token No: {ticket.id}
-    Vehicle: {ticket.vehicle_number}
-    Slot: {ticket.slot}
-    Check-in: {ticket.check_in.strftime('%d %b %Y, %I:%M %p')}
-
-    Scan the QR code in the PDF or use this direct link for instant checkout:
-    {checkout_url}
-
-    Best regards,
-    Elite Parking Team
-    """
-
-    try:
-        msg = EmailMessage(subject, body, settings.DEFAULT_FROM_EMAIL, [email])
-        msg.attach(
-            f"EliteParking_Token_{ticket.id}.pdf",
-            pdf_buffer.getvalue(),
-            "application/pdf",
-        )
-        msg.send()
-    except Exception as e:
-        logger.error(
-            f"Failed to send token email to {email} for ticket {ticket.id}: {e}",
-            exc_info=True,
-        )
-        messages.warning(
-            request, "Your token was created, but we failed to send the email."
-        )
 
 
 # =============================================

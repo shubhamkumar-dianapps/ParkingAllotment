@@ -1,4 +1,5 @@
 from django import forms
+from .models import Ticket
 import re
 import logging
 
@@ -6,32 +7,31 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class VehicleDetailsForm(forms.Form):
-    vehicle_number = forms.CharField(
-        label="Vehicle Number",
-        max_length=15,
-        widget=forms.TextInput(
-            attrs={"class": "form-control", "placeholder": "e.g. RJ14-CC-1234"}
-        ),
-    )
-    phone = forms.CharField(
-        label="Phone Number",
-        max_length=15,
-        widget=forms.TextInput(
-            attrs={"class": "form-control", "placeholder": "+91XXXXXXXXXX"}
-        ),
-    )
-    email = forms.EmailField(
-        label="Email Address",
-        widget=forms.EmailInput(attrs={"class": "form-control"}),
-    )
-    initial_payment = forms.IntegerField(
-        label="Initial Payment (₹)",
-        min_value=0,
-        required=False,
-        initial=0,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
-    )
+class VehicleDetailsForm(forms.ModelForm):
+    class Meta:
+        model = Ticket
+        fields = ["vehicle_number", "phone", "email", "initial_payment"]
+        widgets = {
+            "vehicle_number": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "e.g. RJ14-CC-1234"}
+            ),
+            "phone": forms.TextInput(
+                attrs={"class": "form-control", "placeholder": "+91XXXXXXXXXX"}
+            ),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "initial_payment": forms.NumberInput(attrs={"class": "form-control"}),
+        }
+        labels = {
+            "vehicle_number": "Vehicle Number",
+            "phone": "Phone Number",
+            "email": "Email Address",
+            "initial_payment": "Initial Payment (₹)",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["initial_payment"].required = False
+        self.fields["initial_payment"].initial = 0
 
     def clean_vehicle_number(self):
         val = self.cleaned_data.get("vehicle_number").strip().upper()

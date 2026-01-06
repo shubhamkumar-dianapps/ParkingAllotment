@@ -1,25 +1,28 @@
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 
 
-class ParkingConfig(models.Model):
-    VEHICLE_CHOICES = (
-        ("BIKE", "2 Wheeler"),
-        ("CAR", "4 Wheeler"),
-    )
-
-    vehicle_type = models.CharField(max_length=10, choices=VEHICLE_CHOICES, unique=True)
-    base_price = models.IntegerField(default=30)
-    base_hours = models.IntegerField(default=5)
-    extra_per_hour = models.IntegerField(default=5)
+class VehicleType(models.Model):
+    name = models.CharField(max_length=20, unique=True)
 
     def __str__(self):
-        return self.vehicle_type
+        return self.name
+
+
+class ParkingConfig(models.Model):
+    vehicle_type = models.OneToOneField(VehicleType, on_delete=models.CASCADE)
+    base_price = models.DecimalField(max_digits=8, decimal_places=2, default=30.00)
+    base_hours = models.IntegerField(default=5)
+    extra_per_hour = models.DecimalField(max_digits=8, decimal_places=2, default=5.00)
+
+    def __str__(self):
+        return self.vehicle_type.name
 
 
 class Floor(models.Model):
     number = models.IntegerField(unique=True)
-    price_increment = models.IntegerField(default=0)  # +5 per floor
+    price_increment = models.DecimalField(max_digits=8, decimal_places=2, default=0.00)
 
     def __str__(self):
         return f"Floor {self.number}"
@@ -27,9 +30,14 @@ class Floor(models.Model):
 
 class Slot(models.Model):
     floor = models.ForeignKey(Floor, on_delete=models.CASCADE)
-    section = models.CharField(max_length=1)
+    section = models.CharField(
+        max_length=1,
+        validators=[
+            RegexValidator(r"^[A-Z]$", "Section must be a single uppercase letter.")
+        ],
+    )
     slot_number = models.IntegerField()
-    vehicle_type = models.CharField(max_length=10)
+    vehicle_type = models.ForeignKey(VehicleType, on_delete=models.CASCADE)
     is_available = models.BooleanField(default=True, db_index=True)
 
     class Meta:
@@ -46,12 +54,14 @@ class Ticket(models.Model):
     qr_code = models.ImageField(upload_to="qrcodes/", blank=True, null=True)
     vehicle_number = models.CharField(max_length=20, db_index=True)
     phone = models.CharField(max_length=15, db_index=True)
-    vehicle_type = models.CharField(max_length=10)
+    vehicle_type = models.ForeignKey(VehicleType, on_delete=models.PROTECT)
     slot = models.ForeignKey(Slot, on_delete=models.SET_NULL, null=True)
     check_in = models.DateTimeField(default=timezone.now)
     check_out = models.DateTimeField(null=True, blank=True, db_index=True)
-    initial_payment = models.IntegerField(default=0)
-    final_amount = models.IntegerField(null=True, blank=True)
+    initial_payment = models.DecimalField(max_digits=8, decimal_places=2, default=0.00)
+    final_amount = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True
+    )
     email = models.EmailField(blank=True, null=True, db_index=True)
 
     def __str__(self):

@@ -17,6 +17,12 @@ class TicketModelAdmin(admin.ModelAdmin):
     list_filter = ("vehicle_type", "check_in", "check_out", "slot__floor")
 
 
+@admin.register(Slot)
+class SlotModelAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "vehicle_type", "is_available")
+    list_filter = ("floor", "vehicle_type", "is_available")
+    search_fields = ("section", "slot_number")
+
+
 admin.site.register(ParkingConfig)
 admin.site.register(Floor)
-admin.site.register(Slot)
